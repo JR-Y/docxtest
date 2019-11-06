@@ -4,7 +4,7 @@ const { Document, Media, Packer, Paragraph, Table, TableRow, TableCell, TableHea
 
 const doc = new Document();
 
-let json = fs.readFileSync('.testData/41476.json');
+let json = fs.readFileSync('./testData/41476.json');
 
 let obj = JSON.parse(json);
 
@@ -14,13 +14,31 @@ paragraphs.push(new TableOfContents("Contents", {
     headingStyleRange: "1-2",
     //stylesWithLevels: [new StyleLevel("MySpectacularStyle", 1)],
 }))
+let HEADERNAMES = [
+    {
+        obj: "description",
+        value: "Description"
+    },
+    {
+        obj: "manufacturer",
+        value: "Manufacturer"
+    },
+    {
+        obj: "number",
+        value: "Drawing Number"
+    },
+    {
+        obj: "referencecount",
+        value: "Quantity"
+    }
+]
 
 function recurseObj(obj, level) {
     const { children, data } = obj;
 
     //console.log(`Level:${level}: ${obj.data.description}, style: Heading ${level}`)
     paragraphs.push(new Paragraph({
-        text:obj.data.description,
+        text: obj.data.description,
         heading: HeadingLevel[`HEADING_${level}`]
     }))
 
@@ -28,12 +46,62 @@ function recurseObj(obj, level) {
     datakeys.forEach(key => {
         paragraphs.push(new Paragraph(`${key}: ${data[key]}`))
     })
+    if (children && Array.isArray(children)) {
+        let tableCont = [];
+        let filtered = children.filter(element => element.data.filetype !== "CWR");
+        if (filtered && filtered.length > 0) {
+            tableCont.push(new TableRow({
+                tableHeader: true,
+                children: HEADERNAMES.map(head => {
+                    return new TableCell({
+                        verticalAlign: VerticalAlign.CENTER,
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                text: head.value,
+                                style: "Normal"
+                            })
+                        ]
+                    })
+                })
+            }))
+            filtered
+                .forEach(element => {
+                    let cells = [];
+                    HEADERNAMES.forEach(name => {
+                        let textValue = element.data[name.obj];
+                        if (!isNaN(textValue)){textValue = textValue.toString()}
+                            cells.push(new TableCell({
+                                verticalAlign: VerticalAlign.CENTER,
+                                children: [
+                                    new Paragraph({
+                                        alignment: AlignmentType.CENTER,
+                                        text: textValue,
+                                        style: "Normal"
+                                    })
+                                ]
+                            }))
+                    })
+                    tableCont.push(new TableRow({
+                        children: cells
+                    }))
+
+                });
+            paragraphs.push(new Table({
+                rows: tableCont,
+                width: {
+                    type: WidthType.PERCENTAGE,
+                    size: 100
+                }
+            }));
+        }
+    }
 
     if (children && Array.isArray(children)) {
         level++;
         //console.log(level)
         children.forEach(element => {
-            if(element.data.filetype !== "CWR"){
+            if (element.data.filetype !== "CWR") {
                 recurseObj(element, level)
             }
         });
